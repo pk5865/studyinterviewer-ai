@@ -5,6 +5,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    proxy: { "/api": "http://localhost:5000" }
+    proxy: {
+      "/api": {
+        target: "https://studyinterviewer-ai-production.up.railway.app",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, "")
+      }
+    }
   }
 });
