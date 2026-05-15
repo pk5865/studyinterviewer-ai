@@ -2,6 +2,7 @@ Flask
 flask-cors
 Flask-SQLAlchemy
 gunicorn
-google-generativeai
+google-genai>=0.1.0
 PyPDF2
 requests
+psycopg2-binary==2.9.9

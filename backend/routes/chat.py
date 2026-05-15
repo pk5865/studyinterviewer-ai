@@ -22,6 +22,7 @@ def get_questions(session_id):
             }
         }), 200
     except Exception as e:
+        print(f"Error getting questions: {e}")
         return jsonify({"error": str(e)}), 500
 
 @chat_bp.route("/api/questions/all/<int:session_id>", methods=["GET"])
@@ -33,11 +34,12 @@ def get_all_questions(session_id):
             "questions": [q.to_dict() for q in questions]
         }), 200
     except Exception as e:
+        print(f"Error getting all questions: {e}")
         return jsonify({"error": str(e)}), 500
 
 @chat_bp.route("/api/answer", methods=["POST"])
 def submit_answer():
-    """Submit answer for evaluation"""
+    """Submit answer for evaluation (100% OFFLINE)"""
     try:
         data = request.get_json()
         question_id = data.get("question_id")
@@ -45,14 +47,12 @@ def submit_answer():
         
         question = Question.query.get_or_404(question_id)
         
-        # Evaluate answer
         result = evaluate_answer(
-            question.question,
-            question.answer,
+            question.question,    # ✅ Correct field
+            question.answer,      # ✅ Correct field
             user_answer
         )
         
-        # Log attempt
         attempt = AttemptLog(
             question_id=question_id,
             user_answer=user_answer,
@@ -65,4 +65,5 @@ def submit_answer():
         return jsonify(result), 200
     except Exception as e:
         db.session.rollback()
+        print(f"Error evaluating answer: {e}")
         return jsonify({"error": str(e)}), 500

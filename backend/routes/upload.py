@@ -1,8 +1,8 @@
 import os
-import time  # ✅ CRITICAL: Must be imported
+import time
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-from models.db import db, StudySession, Source, Question, enforce_session_limit  # ✅ Import from db.py
+from models.db import db, StudySession, Source, Question, enforce_session_limit
 from services.pdf_parser import extract_text_from_pdf
 from services.youtube_parser import extract_text_from_youtube
 from services.web_parser import extract_text_from_web
@@ -14,6 +14,8 @@ from services.progress_tracker import tracker
 upload_bp = Blueprint("upload", __name__)
 
 ALLOWED_EXTENSIONS = {"pdf"}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_URL_LENGTH = 2048  # 2KB for URLs
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -21,12 +23,23 @@ def allowed_file(filename):
 @upload_bp.route("/api/upload/pdf", methods=["POST"])
 def upload_pdf():
     session_id = request.form.get("session_id")
+    
     if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
     
     file = request.files["file"]
     if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
+
+    # ✅ Check file size before processing
+    file.seek(0, 2)
+    file_length = file.tell()
+    file.seek(0)
+    
+    if file_length > MAX_FILE_SIZE:
+        return jsonify({
+            "error": f"File too large ({file_length / 1024 / 1024:.1f}MB). Maximum size is 5MB. Please compress your PDF or use a smaller file."
+        }), 400
 
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
@@ -36,26 +49,16 @@ def upload_pdf():
         file.save(filepath)
         
         try:
-            # 1. Extract text
-            tracker.start_session(session_id)
-            tracker.update(session_id, "extracting", "Extracting text from PDF...")
             text = extract_text_from_pdf(filepath)
+            if not text or len(text) < 50:
+                raise ValueError("Could not extract valid text from PDF. The file might be corrupted or contain only images.")
             
-            if not text:
-                raise ValueError("Failed to extract text from PDF.")
-
-            # 2. Generate Questions
-            tracker.update(session_id, "generating", "Generating questions...")
+            add_text_to_vectorstore(session_id, text, filename)
+            
+            tracker.start_session(session_id)
             questions = generate_questions_with_progress(session_id, text, filename)
-            
-            # 3. Generate Summary
-            tracker.update(session_id, "summarizing", "Creating summary...")
             summary = summarize_content(text[:2000], filename)
             
-            # 4. Save to Database
-            tracker.update(session_id, "saving", "Saving to database...")
-            
-            # Save Source
             source = Source(
                 session_id=session_id,
                 source_type="pdf",
@@ -65,23 +68,21 @@ def upload_pdf():
             db.session.add(source)
             db.session.commit()
             
-            # ✅ Save Questions - FIXED: Use correct field names
             for q in questions:
                 question = Question(
-                    session_id=session_id,  # ✅ Links to StudySession
-                    # ❌ DO NOT use source_id - Question model doesn't have this field
+                    session_id=session_id,
                     question=q.get("question", ""),
                     answer=q.get("answer", ""),
-                    level=q.get("level", "moderate"),
-                    source_ref=q.get("source_ref", filename)  # ✅ Use source_ref for text reference
+                    level=q.get("level", "moderate").lower(),
+                    source_ref=q.get("source_ref", filename)
                 )
                 db.session.add(question)
             db.session.commit()
             
-            tracker.update(session_id, "complete", "Done!")
-            
-            # ✅ Auto-cleanup - import now works because it's from db.py
+            # ✅ Auto-cleanup old sessions
             enforce_session_limit(max_sessions=3)
+            
+            tracker.update(session_id, "complete", "Done!")
             
             return jsonify({
                 "message": "PDF processed successfully",
@@ -98,12 +99,19 @@ def upload_pdf():
             if os.path.exists(filepath):
                 os.remove(filepath)
 
-    return jsonify({"error": "Invalid file type"}), 400
+    return jsonify({"error": "Invalid file type. Only PDF files are allowed."}), 400
 
 @upload_bp.route("/api/upload/youtube", methods=["POST"])
 def upload_youtube():
     session_id = request.form.get("session_id")
-    url = request.form.get("url")
+    url = request.form.get("url", "")
+    
+    # ✅ Validate URL length
+    if len(url) > MAX_URL_LENGTH:
+        return jsonify({"error": "URL too long. Maximum length is 2KB."}), 400
+    
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
     
     try:
         text = extract_text_from_youtube(url)
@@ -125,7 +133,7 @@ def upload_youtube():
                 session_id=session_id,
                 question=q.get("question", ""),
                 answer=q.get("answer", ""),
-                level=q.get("level", "moderate"),
+                level=q.get("level", "moderate").lower(),
                 source_ref=q.get("source_ref", url)
             )
             db.session.add(question)
@@ -140,12 +148,19 @@ def upload_youtube():
     except Exception as e:
         db.session.rollback()
         print(f"YouTube upload error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Failed to process YouTube video: {str(e)}"}), 500
 
 @upload_bp.route("/api/upload/web", methods=["POST"])
 def upload_web():
     session_id = request.form.get("session_id")
-    url = request.form.get("url")
+    url = request.form.get("url", "")
+    
+    # ✅ Validate URL length
+    if len(url) > MAX_URL_LENGTH:
+        return jsonify({"error": "URL too long. Maximum length is 2KB."}), 400
+    
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
     
     try:
         text = extract_text_from_web(url)
@@ -167,7 +182,7 @@ def upload_web():
                 session_id=session_id,
                 question=q.get("question", ""),
                 answer=q.get("answer", ""),
-                level=q.get("level", "moderate"),
+                level=q.get("level", "moderate").lower(),
                 source_ref=q.get("source_ref", url)
             )
             db.session.add(question)
@@ -182,11 +197,10 @@ def upload_web():
     except Exception as e:
         db.session.rollback()
         print(f"Web upload error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Failed to process web page: {str(e)}"}), 500
 
 @upload_bp.route("/api/progress/<int:session_id>", methods=["GET"])
 def get_upload_progress(session_id):
-    """Get real-time progress - works offline"""
     progress = tracker.get_progress(session_id)
     if not progress:
         return jsonify({
@@ -199,7 +213,6 @@ def get_upload_progress(session_id):
             "timestamp": time.time()
         }), 200
     
-    # Calculate percentage
     percentage = 0
     if progress.get("total_chunks", 0) > 0:
         percentage = int((progress["current_chunk"] / progress["total_chunks"]) * 100)
