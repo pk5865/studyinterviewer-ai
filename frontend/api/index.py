@@ -444,7 +444,7 @@ def not_found(error):
     return jsonify({"error": "Not found"}), 404
 
 
-@app.route("/health", methods=["GET"])
+@app.route("/api/health", methods=["GET"])
 def health():
     return jsonify(
         {
@@ -455,7 +455,7 @@ def health():
     ), 200
 
 
-@app.route("/sessions", methods=["GET"])
+@app.route("/api/sessions", methods=["GET"])
 def list_sessions():
     sessions = StudySession.query.order_by(StudySession.created_at.desc()).all()
     result = []
@@ -474,7 +474,7 @@ def list_sessions():
     return jsonify(result), 200
 
 
-@app.route("/session/create", methods=["POST"])
+@app.route("/api/session/create", methods=["POST"])
 def create_session():
     data = payload_dict()
     title = (data.get("title") or "Untitled Session").strip()
@@ -488,7 +488,7 @@ def create_session():
         return jsonify({"error": str(exc)}), 500
 
 
-@app.route("/session/<int:session_id>", methods=["GET"])
+@app.route("/api/session/<int:session_id>", methods=["GET"])
 def get_session(session_id):
     session = StudySession.query.get_or_404(session_id)
     sources = Source.query.filter_by(session_id=session_id).all()
@@ -513,7 +513,7 @@ def get_session(session_id):
     ), 200
 
 
-@app.route("/session/<int:session_id>", methods=["DELETE"])
+@app.route("/api/session/<int:session_id>", methods=["DELETE"])
 def delete_session(session_id):
     session = StudySession.query.get_or_404(session_id)
     try:
@@ -532,7 +532,7 @@ def delete_session(session_id):
         return jsonify({"error": str(exc)}), 500
 
 
-@app.route("/upload/pdf", methods=["POST"])
+@app.route("/api/upload/pdf", methods=["POST"])
 def upload_pdf():
     session_id = parse_session_id(request.form.get("session_id"))
     if session_id is None:
@@ -595,7 +595,7 @@ def upload_pdf():
             os.remove(tmp_path)
 
 
-@app.route("/upload/youtube", methods=["POST"])
+@app.route("/api/upload/youtube", methods=["POST"])
 def upload_youtube():
     data = payload_dict()
     session_id = parse_session_id(data.get("session_id"))
@@ -635,8 +635,8 @@ def upload_youtube():
         return jsonify({"error": f"Failed to process YouTube video: {exc}"}), 500
 
 
-@app.route("/upload/webpage", methods=["POST"])
-@app.route("/upload/web", methods=["POST"])
+@app.route("/api/upload/webpage", methods=["POST"])
+@app.route("/api/upload/web", methods=["POST"])
 def upload_webpage():
     data = payload_dict()
     session_id = parse_session_id(data.get("session_id"))
@@ -676,7 +676,7 @@ def upload_webpage():
         return jsonify({"error": f"Failed to process web page: {exc}"}), 500
 
 
-@app.route("/progress/<int:session_id>", methods=["GET"])
+@app.route("/api/progress/<int:session_id>", methods=["GET"])
 def get_progress(session_id):
     upload_progress = tracker.get_progress(session_id)
     question_total, attempted, correct, score_pct = session_stats(session_id)
@@ -700,7 +700,7 @@ def get_progress(session_id):
     )
 
 
-@app.route("/questions/<int:session_id>", methods=["GET"])
+@app.route("/api/questions/<int:session_id>", methods=["GET"])
 def get_questions(session_id):
     questions = Question.query.filter_by(session_id=session_id).all()
     important = [q.to_dict() for q in questions if q.level == "important"]
@@ -709,13 +709,13 @@ def get_questions(session_id):
     return jsonify({"questions": {"important": important, "moderate": moderate, "okay": okay}}), 200
 
 
-@app.route("/questions/all/<int:session_id>", methods=["GET"])
+@app.route("/api/questions/all/<int:session_id>", methods=["GET"])
 def get_all_questions(session_id):
     questions = Question.query.filter_by(session_id=session_id).all()
     return jsonify({"questions": [q.to_dict() for q in questions]}), 200
 
 
-@app.route("/answer", methods=["POST"])
+@app.route("/api/answer", methods=["POST"])
 def submit_answer():
     data = payload_dict()
     question_id = data.get("question_id")
@@ -738,7 +738,7 @@ def submit_answer():
         return jsonify({"error": str(exc)}), 500
 
 
-@app.route("/summary/<int:source_id>", methods=["GET"])
+@app.route("/api/summary/<int:source_id>", methods=["GET"])
 def get_summary(source_id):
     source = Source.query.get_or_404(source_id)
     return jsonify(
