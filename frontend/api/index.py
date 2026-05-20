@@ -30,7 +30,19 @@ CORS(app)
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 sqlite_path = (BASE_DIR / "studyinterviewer.db").as_posix()
-app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL or f"sqlite:///{sqlite_path}"
+
+
+def normalize_database_url(url: str) -> str:
+    if not url:
+        return f"sqlite:///{sqlite_path}"
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgres://")
+    return url
+
+
+app.config["SQLALCHEMY_DATABASE_URI"] = normalize_database_url(DATABASE_URL)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = MAX_FILE_SIZE
 
