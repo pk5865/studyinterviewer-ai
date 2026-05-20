@@ -98,32 +98,47 @@ export default function Session() {
   };
 
   const handleUpload = async () => {
+    if (tab === "PDF") {
+      if (!file) return notify("error", "Select a PDF.");
+      if (file.size > 5 * 1024 * 1024) {
+        return notify("error", "PDF must be under 5MB.");
+      }
+    } else if (!url.trim()) {
+      return notify("error", tab === "YouTube" ? "Enter YouTube URL." : "Enter webpage URL.");
+    }
+
     setLoading(true);
     setProgress(null);
-    startProgressPolling();
-    
+
     try {
+      let response;
       if (tab === "PDF") {
-        if (!file) return notify("error", "Select a PDF.");
-        if (file.size > 5 * 1024 * 1024) {
-          return notify("error", "PDF must be under 5MB.");
-        }
-        await uploadPDF(id, file);
+        response = await uploadPDF(id, file);
         setFile(null);
       } else if (tab === "YouTube") {
-        if (!url.trim()) return notify("error", "Enter YouTube URL.");
-        await uploadYoutube(id, url.trim());
+        response = await uploadYoutube(id, url.trim());
         setUrl("");
       } else {
-        if (!url.trim()) return notify("error", "Enter webpage URL.");
-        await uploadWebpage(id, url.trim());
+        response = await uploadWebpage(id, url.trim());
         setUrl("");
+      }
+
+      await load();
+      const questionsCount = response?.data?.questions_count ?? 0;
+      if (questionsCount > 0) {
+        notify("success", "Questions generated successfully!");
+        setTimeout(() => {
+          nav(`/session/${id}/practice`);
+        }, 1200);
+      } else {
+        notify("error", "No questions were generated.");
       }
     } catch (e) {
       console.error("Upload error:", e);
       stopProgressPolling();
-      setLoading(false);
       notify("error", e.response?.data?.error || "Something went wrong.");
+    } finally {
+      setLoading(false);
     }
   };
 

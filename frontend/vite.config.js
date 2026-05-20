@@ -7,10 +7,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": {
-        target: "https://studyinterviewer-ai-production.up.railway.app",
+        target: "http://localhost:5000",
         changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, "")
+        secure: false
       }
     }
   }

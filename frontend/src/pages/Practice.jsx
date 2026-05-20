@@ -30,7 +30,7 @@ export default function Practice() {
       ...data.questions.okay
     ];
     setAllQ(flat);
-    const {  p } = await getProgress(id);
+    const { data: p } = await getProgress(id);
     setProgress(p);
   };
 
