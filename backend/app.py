@@ -16,7 +16,13 @@ def create_app():
     CORS(app)
 
     # ✅ Use PostgreSQL in production (Neon), SQLite locally
-    db_uri = os.environ.get("DATABASE_URL")
+    # Vercel's Neon integration exposes POSTGRES_URL by default. Keep
+    # DATABASE_URL first for existing deployments and local configurations.
+    db_uri = (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("POSTGRES_URL")
+        or os.environ.get("POSTGRES_PRISMA_URL")
+    )
     if not db_uri:
         basedir = os.path.abspath(os.path.dirname(__file__))
         db_uri = "sqlite:///" + os.path.join(basedir, "studyinterviewer.db")
