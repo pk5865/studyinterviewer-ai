@@ -2,7 +2,7 @@ import os
 import time
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-from models.db import db, StudySession, Source, Question, enforce_session_limit
+from models.db import db, StudySession, Source, Question, AttemptLog, enforce_session_limit
 from services.pdf_parser import extract_text_from_pdf
 from services.youtube_parser import extract_text_from_youtube
 from services.web_parser import extract_text_from_web
@@ -219,6 +219,20 @@ def get_upload_progress(session_id):
     elif progress["status"] == "complete":
         percentage = 100
     
+    question_total = Question.query.filter_by(session_id=session_id).count()
+    attempted = (
+        db.session.query(AttemptLog)
+        .join(Question, AttemptLog.question_id == Question.id)
+        .filter(Question.session_id == session_id)
+        .count()
+    )
+    correct = (
+        db.session.query(AttemptLog)
+        .join(Question, AttemptLog.question_id == Question.id)
+        .filter(Question.session_id == session_id, AttemptLog.is_correct.is_(True))
+        .count()
+    )
+
     return jsonify({
         "status": progress.get("status", "idle"),
         "message": progress.get("message", ""),
@@ -226,5 +240,9 @@ def get_upload_progress(session_id):
         "total_chunks": progress.get("total_chunks", 0),
         "questions_generated": progress.get("questions_generated", 0),
         "percentage": percentage,
+        "correct": correct,
+        "attempted": attempted,
+        "total": question_total,
+        "score_pct": round((correct / question_total) * 100) if question_total else 0,
         "timestamp": time.time()
     }), 200

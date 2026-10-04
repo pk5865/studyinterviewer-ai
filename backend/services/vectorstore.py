@@ -18,10 +18,10 @@ def add_text_to_vectorstore(session_id, text, source_name):
         with open(text_file, 'w', encoding='utf-8') as f:
             f.write(text)
         
-        print(f"✅ Saved text to {text_file}")
+        print(f"Saved text to {text_file}")
         return True
     except Exception as e:
-        print(f"❌ Error saving to vectorstore: {e}")
+        print(f"Error saving to vectorstore: {e}")
         return False
 
 def delete_vectorstore(session_id):
@@ -32,10 +32,10 @@ def delete_vectorstore(session_id):
         
         if os.path.exists(chroma_dir):
             shutil.rmtree(chroma_dir)
-            print(f"🗑️ Deleted vectorstore for session {session_id}")
+            print(f"Deleted vectorstore for session {session_id}")
         return True
     except Exception as e:
-        print(f"❌ Error deleting vectorstore: {e}")
+        print(f"Error deleting vectorstore: {e}")
         return False
 
 def search_vectorstore(session_id, query, top_k=5):
@@ -67,5 +67,5 @@ def search_vectorstore(session_id, query, top_k=5):
         
         return results[:top_k]
     except Exception as e:
-        print(f"❌ Error searching vectorstore: {e}")
+        print(f"Error searching vectorstore: {e}")
         return []

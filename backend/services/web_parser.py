@@ -21,5 +21,5 @@ def extract_text_from_web(url):
         return text[:4000] if text else "No readable content found."
         
     except Exception as e:
-        print(f"🌐 Web parse error: {e}")
+        print(f"Web parse error: {e}")
         return f"Error fetching webpage: {str(e)}"

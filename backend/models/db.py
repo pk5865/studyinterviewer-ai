@@ -36,7 +36,7 @@ def enforce_session_limit(max_sessions=3):
             sessions_to_delete = all_sessions[max_sessions:]
             
             for session in sessions_to_delete:
-                print(f"🗑️ Cleaning up old session {session.id}: {session.title}")
+                print(f"Cleaning up old session {session.id}: {session.title}")
                 
                 # 1. Delete ChromaDB folder for this session
                 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -48,9 +48,9 @@ def enforce_session_limit(max_sessions=3):
                 db.session.delete(session)
             
             db.session.commit()
-            print(f"✅ Cleaned up {len(sessions_to_delete)} old session(s).")
+            print(f"Cleaned up {len(sessions_to_delete)} old session(s).")
     except Exception as e:
-        print(f"❌ Cleanup failed: {e}")
+        print(f"Cleanup failed: {e}")
         db.session.rollback()
 
 # Models

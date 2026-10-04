@@ -24,7 +24,7 @@ def generate_questions_with_progress(sid, content, source_name):
         tracker.update(sid, "complete", "Generation complete!", 
                       current_chunk=len(chunks), questions_generated=len(all_questions))
 
-    print(f"🎉 Offline generation complete: {len(all_questions)} questions")
+    print(f"Offline generation complete: {len(all_questions)} questions")
     return all_questions
 
 def create_offline_question(chunk, source_ref):
