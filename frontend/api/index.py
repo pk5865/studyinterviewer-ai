@@ -17,9 +17,12 @@ from werkzeug.utils import secure_filename
 from youtube_transcript_api import YouTubeTranscriptApi
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_FOLDER = BASE_DIR / "uploads"
-VECTOR_ROOT = BASE_DIR / "chroma_store"
-GENERATED_FOLDER = BASE_DIR / "generated"
+# Vercel's deployed source directory is read-only. Keep transient uploads and
+# vector indexes under /tmp there while preserving the existing local layout.
+RUNTIME_DIR = Path("/tmp/studyinterviewer-ai") if os.environ.get("VERCEL") else BASE_DIR
+UPLOAD_FOLDER = RUNTIME_DIR / "uploads"
+VECTOR_ROOT = RUNTIME_DIR / "chroma_store"
+GENERATED_FOLDER = RUNTIME_DIR / "generated"
 MAX_FILE_SIZE = 5 * 1024 * 1024
 MAX_URL_LENGTH = 2048
 ALLOWED_EXTENSIONS = {"pdf"}
@@ -752,10 +755,13 @@ def get_summary(source_id):
 
 
 with app.app_context():
+    for runtime_folder in (UPLOAD_FOLDER, VECTOR_ROOT, GENERATED_FOLDER):
+        try:
+            runtime_folder.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            print(f"Runtime folder initialization warning: {exc}")
+
     try:
-        UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-        VECTOR_ROOT.mkdir(parents=True, exist_ok=True)
-        GENERATED_FOLDER.mkdir(parents=True, exist_ok=True)
         db.create_all()
         enforce_session_limit(max_sessions=3)
     except Exception as exc:
