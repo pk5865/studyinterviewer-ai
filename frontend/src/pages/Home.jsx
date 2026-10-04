@@ -10,18 +10,36 @@ export default function Home() {
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState("");
+
+  const describeError = (err) =>
+    err.response?.data?.error || err.response?.data?.message || err.message || "Unknown error";
 
   const load = async () => {
-    try { const { data } = await listSessions(); setSessions(data); } catch {}
+    try {
+      const { data } = await listSessions();
+      setSessions(Array.isArray(data) ? data : []);
+      setError("");
+    } catch (err) {
+      setError(`Could not load sessions: ${describeError(err)}`);
+    }
   };
   useEffect(() => { load(); }, []);
 
   const handleCreate = async () => {
     if (!title.trim()) return;
     setCreating(true);
-    const { data } = await createSession(title.trim());
-    setCreating(false); setShowModal(false); setTitle("");
-    nav("/session/" + data.session_id);
+    setError("");
+    try {
+      const { data } = await createSession(title.trim());
+      setShowModal(false);
+      setTitle("");
+      nav("/session/" + data.session_id);
+    } catch (err) {
+      setError(`Could not create session: ${describeError(err)}`);
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleDelete = async (e, id) => {
@@ -66,10 +84,11 @@ export default function Home() {
           <h2 className={styles.secTitle}>Your Sessions</h2>
           <button className={styles.newBtn} onClick={() => setShowModal(true)}>+ New</button>
         </div>
+        {error && sessions.length > 0 && <p role="alert" style={{color:"#fca5a5",marginBottom:16}}>{error}</p>}
         {sessions.length === 0
           ? <div className={styles.empty}>
               <div className={styles.emptyIcon}>📚</div>
-              <p>No sessions yet. Create your first one!</p>
+              <p>{error || "No sessions yet. Create your first one!"}</p>
             </div>
           : <div className={styles.grid}>
               {sessions.map(s => (
@@ -95,6 +114,7 @@ export default function Home() {
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <h3>New Study Session</h3>
             <p className={styles.modalSub}>Give your session a name</p>
+            {error && <p role="alert" className={styles.modalSub}>{error}</p>}
             <input
               autoFocus
               placeholder="Session title..."
